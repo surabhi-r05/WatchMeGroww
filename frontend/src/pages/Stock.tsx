@@ -12,7 +12,7 @@ const AVAILABLE=[
 const DEFAULT=['sma20','sma50','rsi14','macd'];
 
 export default function Stock({symbol,onBack}:{symbol:string;onBack:()=>void}){
- const [s,setS]=useState<any>(); const [h,setH]=useState<any[]>([]); const [tab,setTab]=useState('Overview'); const [range,setRange]=useState(120);
+ const [s,setS]=useState<any>(); const [h,setH]=useState<any[]>([]); const [tab,setTab]=useState('Overview'); const [range,setRange]=useState(120); const [showAlert,setShowAlert]=useState(false); const [alertType,setAlertType]=useState('PRICE_ABOVE'); const [threshold,setThreshold]=useState('');
  const key=`watchmegroww-indicators-${symbol}`;
  const [selected,setSelected]=useState<string[]>(()=>{try{return JSON.parse(localStorage.getItem(key)||'null')||DEFAULT}catch{return DEFAULT}});
  useEffect(()=>{Promise.all([api('/stocks/'+symbol),api('/stocks/'+symbol+'/history?days=1825')]).then(([a,b])=>{setS(a);setH(b);api('/stocks/'+symbol+'/seen',{method:'POST'}).catch(()=>{})})},[symbol]);
@@ -26,7 +26,7 @@ export default function Stock({symbol,onBack}:{symbol:string;onBack:()=>void}){
  return <div className="space-y-6">
   <button onClick={onBack} className="back-btn"><ArrowLeft size={16}/> Back</button>
   <header className="stock-head">
-   <div><div className="eyebrow">{s.exchange} · {s.sector}</div><h1 className="page-title">{s.name}</h1><p className="muted">{s.symbol} · {s.sector_index}</p></div>
+   <div><div className="eyebrow">{s.exchange} · {s.sector}</div><h1 className="page-title">{s.name}</h1><p className="muted">{s.symbol} · {s.sector_index}{s.sector_value!=null?` · ₹${Number(s.sector_value).toLocaleString('en-IN')}`:''}</p></div>
    <div className="stock-price"><strong>₹{Number(s.price).toLocaleString('en-IN')}</strong><span className={s.change_pct>=0?'green':'red'}>{s.change_pct>=0?'+':''}{s.change_pct}% today</span><small>{s.freshness} · {s.source}</small></div>
   </header>
   <div className="grid md:grid-cols-5 gap-3">
@@ -48,7 +48,7 @@ export default function Stock({symbol,onBack}:{symbol:string;onBack:()=>void}){
     </Panel>
     <Panel title="Support / resistance"><div className="space-y-5 mt-4"><Metric label="Resistance" value={`₹${Number(s.resistance).toLocaleString('en-IN')}`}/><Metric label="Current" value={`₹${Number(s.price).toLocaleString('en-IN')}`}/><Metric label="Support" value={`₹${Number(s.support).toLocaleString('en-IN')}`}/><p className="tiny muted">Derived from recent price structure. These are analytical levels, not guarantees.</p></div></Panel>
    </div>
-   <Panel title="Market context"><div className="grid md:grid-cols-3 gap-4 mt-4"><Metric label="Stock today" value={`${s.change_pct>=0?'+':''}${s.change_pct}%`}/><Metric label={s.sector_index||'Sector'} value={sector==null?'N/A':`${sector>=0?'+':''}${sector}%`}/><Metric label="NIFTY 50" value="See Market Overview"/></div></Panel>
+   <Panel title="Market context"><div className="grid md:grid-cols-4 gap-4 mt-4"><Metric label="Stock today" value={`${s.change_pct>=0?'+':''}${s.change_pct}%`}/><Metric label={s.sector_index||'Sector'} value={sector==null?'N/A':`${sector>=0?'+':''}${sector}%`}/><Metric label="Sector index value" value={s.sector_value==null?'N/A':`₹${Number(s.sector_value).toLocaleString('en-IN')}`}/><Metric label="NIFTY 50" value="See Market Overview"/></div></Panel>
   </>}
   {tab==='Technicals'&&<>
    <Panel title="Choose indicators" action={<span className="tiny muted">Saved for this stock</span>}><div className="indicator-picker">{AVAILABLE.map(([id,label])=><button key={id} className={selected.includes(id)?'selected':''} onClick={()=>toggle(id)}>{selected.includes(id)?<Check size={14}/>:<Plus size={14}/>} {label}</button>)}</div></Panel>
@@ -66,7 +66,8 @@ export default function Stock({symbol,onBack}:{symbol:string;onBack:()=>void}){
   </Panel>}
   {tab==='News & Events'&&<Panel title="Verified news & events" action={<span className="badge"><Newspaper size={13}/> {s.news.freshness}</span>}><div className="space-y-3 mt-4">{(s.news.articles||[]).map((a:any)=><a href={a.url} target="_blank" rel="noreferrer" className="news-card block" key={a.url}><div className="flex justify-between gap-3"><span className="eyebrow">{a.event_type}</span><span className="tiny muted">{a.source}</span></div><h3>{a.title}</h3><p>{a.description}</p><small>{a.published_at?new Date(a.published_at).toLocaleString():''}</small></a>)}{!(s.news.articles||[]).length&&<div className="empty-state"><ShieldAlert size={18}/> Verified news is unavailable. Configure GNEWS_API_KEY for external headlines.</div>}</div></Panel>}
   <Panel title="Signal evidence"><div className="grid md:grid-cols-2 gap-3">{s.signals.map((x:any)=><div className="signal-card" key={x.type}><div className="flex justify-between"><b>{x.type.replaceAll('_',' ')}</b><span>{Math.round(x.confidence*100)}% confidence</span></div><p>{x.explanation}</p><small>{JSON.stringify(x.metrics)}</small></div>)}{!s.signals.length&&<p className="muted">No detected signal at the current threshold.</p>}</div></Panel>
-  <Panel title="Quick actions"><div className="flex flex-wrap gap-2"><button className="secondary-btn" onClick={async()=>{const t=Number(prompt('Price above'));if(Number.isFinite(t)){await api('/alerts',json({symbol,alert_type:'PRICE_ABOVE',threshold:t}));alert('Alert created')}}}><Bell size={15}/> Price above</button><button className="secondary-btn" onClick={()=>api(`/watchlists/1/stocks/${symbol}/pin`,{method:'POST'}).catch(()=>{})}><Bookmark size={15}/> Pin to default</button></div></Panel>
+  <Panel title="Quick actions"><div className="flex flex-wrap gap-2"><button className="secondary-btn" onClick={()=>setShowAlert(v=>!v)}><Bell size={15}/> {showAlert?'Close alert builder':'Create alert'}</button><button className="secondary-btn" onClick={()=>api(`/watchlists/1/stocks/${symbol}/pin`,{method:'POST'}).catch(()=>{})}><Bookmark size={15}/> Pin to default</button></div>{showAlert&&<div className="alert-controls mt-4"><select value={alertType} onChange={e=>setAlertType(e.target.value)}><option value="PRICE_ABOVE">Price rises above</option><option value="PRICE_BELOW">Price falls below</option><option value="PCT_MOVE">Daily move reaches</option><option value="VOLUME_SPIKE">Volume spike</option></select><input type="number" value={threshold} onChange={e=>setThreshold(e.target.value)} placeholder="Threshold"/><button className="primary-btn" disabled={!threshold} onClick={async()=>{const t=Number(threshold);if(!Number.isFinite(t))return;await api('/alerts',json({symbol,alert_type:alertType,threshold:t}));setThreshold('');setShowAlert(false)}}>Create alert</button></div>}</Panel>
+  {s.note&&<Panel title="Your note"><div className="saved-note">{s.note}</div></Panel>}
  </div>
 }
 function round(n:number,d=2){const p=10**d;return Math.round(n*p)/p}

@@ -1,4 +1,4 @@
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const API = import.meta.env.VITE_API_URL || '/api';
 export type Creds={email:string;password:string};
 function readCreds():Creds|null{try{return JSON.parse(localStorage.getItem('wmgr_creds')||'null')}catch{return null}}
 let creds:Creds|null=readCreds();

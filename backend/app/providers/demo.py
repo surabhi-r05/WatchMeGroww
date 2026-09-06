@@ -121,4 +121,21 @@ class DemoProvider:
         total_call=sum(x["call"]["oi"] for x in chain); total_put=sum(x["put"]["oi"] for x in chain)
         return {"symbol":symbol.upper(),"underlying":round(price,2),"expiry":"Demo expiry","pcr":round(total_put/total_call,2),"chain":chain,"source":"Demo fallback","freshness":"demo"}
 
+    def sector_quote(self, index_name):
+        index_name = index_name.upper()
+        # Stable demo index levels keep sector cards useful when NSE is unavailable.
+        levels = {
+            "NIFTY IT": 42350.0, "NIFTY BANK": 56842.3, "NIFTY METAL": 10125.0,
+            "NIFTY PHARMA": 21980.0, "NIFTY AUTO": 28150.0, "NIFTY FMCG": 58240.0,
+            "NIFTY OIL & GAS": 12850.0, "NIFTY POWER": 7850.0, "NIFTY TELECOM": 4120.0,
+            "NIFTY INFRA": 9650.0, "NIFTY INDIA DEFENCE": 8420.0,
+            "NIFTY FINANCIAL SERVICES": 27450.0, "NIFTY REALTY": 1120.0,
+            "NIFTY CONSUMPTION": 11850.0, "NIFTY 50": 25123.45,
+        }
+        level = levels.get(index_name)
+        if level is None:
+            return None
+        sector_name = next((r[2] for r in STOCKS if r[3].upper() == index_name), index_name)
+        return {"name": index_name, "value": level, "change_pct": SECTOR_CHANGE.get(sector_name, 0.0), "source": "Demo fallback", "freshness": "demo", "fetched_at": datetime.utcnow().isoformat()}
+
     def market(self): return {"NIFTY 50":{"value":25123.45,"change_pct":0.73,"source":self.source,"freshness":"demo"},"SENSEX":{"value":82110.2,"change_pct":0.61,"source":self.source,"freshness":"demo"},"BANK NIFTY":{"value":56842.3,"change_pct":0.92,"source":self.source,"freshness":"demo"}}

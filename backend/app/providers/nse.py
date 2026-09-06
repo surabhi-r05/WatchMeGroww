@@ -231,7 +231,7 @@ class NSEProvider:
                 return self._put(key, result)
         except Exception:
             return None
-        return None
+        return self.demo.sector_quote(index_name)
 
     def option_chain(self, symbol: str) -> dict[str, Any]:
         symbol = symbol.upper().strip()

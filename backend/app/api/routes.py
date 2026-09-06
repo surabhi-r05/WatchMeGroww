@@ -29,10 +29,11 @@ def item_for(db,user_id,wid,symbol):
 def quote_with_state(db,user,s):
     q=provider.quote(s.symbol)
     sector=None
-    if isinstance(provider, NSEProvider):
+    if hasattr(provider, 'sector_quote'):
         sector=provider.sector_quote(s.sector_index)
         if sector:
             q['sector_change_pct']=sector.get('change_pct')
+            q['sector_value']=sector.get('value')
             q['sector_source']=sector.get('source')
             q['sector_freshness']=sector.get('freshness')
     state=db.scalar(select(UserStockState).where(UserStockState.user_id==user.id,UserStockState.stock_id==s.id));since=None
@@ -66,9 +67,9 @@ def stock(symbol:str,db:Session=Depends(get_db),user:User=Depends(current_user))
     s=stock_by_symbol(db,symbol)
     if not s:raise HTTPException(404,"Stock not found")
     q=provider.quote(s.symbol)
-    if isinstance(provider, NSEProvider):
+    if hasattr(provider, 'sector_quote'):
         sector=provider.sector_quote(s.sector_index)
-        if sector: q['sector_change_pct']=sector.get('change_pct');q['sector_source']=sector.get('source');q['sector_freshness']=sector.get('freshness')
+        if sector: q['sector_change_pct']=sector.get('change_pct');q['sector_value']=sector.get('value');q['sector_source']=sector.get('source');q['sector_freshness']=sector.get('freshness')
     h=provider.history(s.symbol,365);ind=indicators(h)
     state=db.scalar(select(UserStockState).where(UserStockState.user_id==user.id,UserStockState.stock_id==s.id));since=None if not state or not state.last_seen_price else round((q['price']/state.last_seen_price-1)*100,2)
     item=db.scalar(select(WatchlistItem).join(Watchlist).where(Watchlist.user_id==user.id,WatchlistItem.stock_id==s.id))
@@ -108,7 +109,7 @@ def sectors(db:Session=Depends(get_db),user:User=Depends(current_user)):
     for s in db.scalars(select(Stock)).all():
         if s.sector_index in seen: continue
         seen.add(s.sector_index)
-        q=provider.sector_quote(s.sector_index) if isinstance(provider, NSEProvider) else None
+        q=provider.sector_quote(s.sector_index) if hasattr(provider, 'sector_quote') else None
         if q:
             result.append({'sector':s.sector,'index':s.sector_index,'change_pct':q.get('change_pct'),'value':q.get('value'),'source':q.get('source'),'freshness':q.get('freshness')})
         else:
@@ -180,6 +181,15 @@ def edit_item(wid:int,symbol:str,x:NoteUpdate,db:Session=Depends(get_db),user:Us
     w,it=item_for(db,user.id,wid,symbol)
     if not it:raise HTTPException(404,"Item not found")
     it.note=x.note;db.commit();return {"ok":True}
+
+@router.patch('/watchlists/{wid}/stocks/{symbol}/group')
+def move_stock_group(wid:int,symbol:str,x:GroupMove,db:Session=Depends(get_db),user:User=Depends(current_user)):
+    w,it=item_for(db,user.id,wid,symbol)
+    if not it: raise HTTPException(404,'Item not found')
+    gid=x.group_id
+    g=db.scalar(select(WatchlistGroup).where(WatchlistGroup.id==gid,WatchlistGroup.watchlist_id==wid))
+    if not g: raise HTTPException(404,'Group not found')
+    it.group_id=g.id; db.commit(); return {'ok':True,'group_id':g.id}
 
 @router.post('/watchlists/{wid}/stocks/{symbol}/pin')
 def pin(wid:int,symbol:str,db:Session=Depends(get_db),user:User=Depends(current_user)):

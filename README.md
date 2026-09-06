@@ -30,6 +30,28 @@ npm run dev
 
 Open http://localhost:5173.
 
+### Deploy to Vercel
+
+Push the repository to GitHub, import it as a Vercel project, and keep the
+project root at the repository root. The included `vercel.json` builds the
+Vite app from `frontend/` and routes `/api/*` to the FastAPI function in
+`api/index.py`.
+
+Add these Vercel environment variables for the Preview and Production
+environments:
+
+```text
+DEMO_MODE=true
+DATABASE_URL=sqlite:///./watchmegroww.db
+GNEWS_API_KEY=your_key
+```
+
+Do not commit real API keys. The deployed frontend uses `/api` automatically;
+for local development, copy `frontend/.env.example` to `frontend/.env`.
+
+SQLite storage on Vercel is ephemeral. This is suitable for a demo, but a
+production deployment should later use a hosted database.
+
 ## Real news
 
 Set `GNEWS_API_KEY` in a backend `.env` file. The backend fetches verified article metadata server-side and caches it. The UI labels the freshness and never invents news when the provider is unavailable.
