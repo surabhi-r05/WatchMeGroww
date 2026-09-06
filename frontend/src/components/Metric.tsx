@@ -1,0 +1,1 @@
+export default function Metric({label,value,change}:{label:string;value:any;change?:number}){return <div><div className="muted text-xs uppercase tracking-wider">{label}</div><div className="text-2xl font-semibold mt-1">{value}</div>{change!==undefined&&<div className={`text-sm mt-1 ${change>=0?'green':'red'}`}>{change>=0?'+':''}{change.toFixed(2)}%</div>}</div>}
